@@ -1,0 +1,90 @@
+- assert:
+    that:
+     - "kibana_server_name is defined"
+     - "elk_letsencrypt_dir is defined"
+
+- name: Add user {{ elk_user }}
+  user: name="{{ elk_user }}" shell=/bin/bash
+
+- name: Creates directories
+  file: path="{{ item }}" owner="{{ elk_user }}" group="{{ elk_user }}" state=directory
+  with_items: "{{ elk_dirs }}"
+
+
+- name: Generate {{ kibana_server_name }} nginx conf
+  template: src="{{ kibana_nginx_template }}" dest={{ kibana_nginx_config_file }}
+
+- name: Restart nginx
+  service: name=nginx state=restarted
+
+- name: Generate {{ elasticsearch_config_file }} elasticsearch conf
+  template: src="{{ elasticsearch_config }}" dest={{ elasticsearch_config_file }}
+
+- name: Generate {{ dockerbeat_config_file }} dockerbeat conf
+  template: src="{{ dockerbeat_config }}" dest={{ dockerbeat_config_file }}
+
+- name: Generate {{ dockerbeat_template_file }} dockerbeat template
+  template: src="{{ dockerbeat_template }}" dest={{ dockerbeat_template_file }}
+
+- docker_service:
+    project_name: "{{ elk_project_name }}"
+    restarted: yes
+    definition:
+      version: '2'
+      services:
+        kibana:
+          image: "{{ kibana_image }}"
+          environment:
+            - ELASTICSEARCH_URL=http://elasticsearch:9200
+#          volumes:
+#            - "{{ jenkins_data_dir }}:/var/jenkins_home"
+          ports:
+            - "{{ kibana_ip }}:{{ kibana_port }}:5601"
+          links:
+           - elasticsearch
+        elasticsearch:
+          image: "{{ elasticsearch_image }}"
+          volumes:
+           - "{{ elasticsearch_volume_config_dir }}:/usr/share/elasticsearch/config"
+           - "{{ elasticsearch_data_dir }}:/usr/share/elasticsearch/data"
+        dockerbeat:
+          image: "{{ dockerbeat_image }}"
+          volumes:
+           - "/var/run/docker.sock:/var/run/docker.sock"
+           - "{{ dockerbeat_data_dir }}:/etc/dockerbeat"
+          links:
+           - elasticsearch
+
+
+#
+#version: '2'
+#services:
+#  kibana:
+#    image: kibana:4
+#    environment:
+#      - ELASTICSEARCH_URL=http://elasticsearch:9200
+#    ports:
+#     - "5601:5601"
+#    links:
+#     - elasticsearch
+#  logstash:
+#    image: logstash:2
+#    command: logstash -f /config/logstash.conf
+#    volumes:
+#     - ./logstash:/config
+#    ports:
+#     - "5999:5999"
+#    links:
+#     - elasticsearch
+#  dockerbeat:
+#    image: ingensi/dockerbeat:latest
+#    volumes:
+#     - /var/run/docker.sock:/var/run/docker.sock
+#     - ./dockerbeat:/etc/dockerbeat
+#    links:
+#     - elasticsearch
+#  elasticsearch:
+#    image: elasticsearch:2
+#    volumes:
+#     - ./elasticsearch/config:/usr/share/elasticsearch/config
+#     - ./elasticsearch/data:/usr/share/elasticsearch/data

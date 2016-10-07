@@ -1,0 +1,6 @@
+[submodule "roles/docker"]
+	path = roles/docker
+	url = git@github.com:Haos616/ansible-docker.git
+[submodule "roles/letsencrypt"]
+	path = roles/letsencrypt
+	url = git@github.com:Haos616/ansible-letsencrypt.git

@@ -1,0 +1,5 @@
+.idea/
+group_vars/all
+hosts/haos616
+env/
+*.retry

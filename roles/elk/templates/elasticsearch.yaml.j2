@@ -1,0 +1,42 @@
+---
+network:
+  host: _site_
+bootstrap:
+  mlockall: true
+cluster:
+  name: docker
+discovery:
+  zen:
+    ping:
+      multicast:
+        enabled: false
+http:
+  cors:
+    enabled: false
+index:
+  cache:
+    field:
+      type: soft
+  number_of_shards: 4
+  refresh_interval: 30s
+path:
+  data: /usr/share/elasticsearch/data
+script:
+  engine:
+    groovy:
+      inline:
+        aggs: true
+        update: true
+  groovy:
+    sandbox:
+      enabled: true
+  indexed: true
+  inline: true
+  search: true
+threadpool:
+  bulk:
+    queue_size: -1
+  index:
+    queue_size: 300
+  search:
+    queue_size: 100

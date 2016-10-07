@@ -1,0 +1,17 @@
+---
+- hosts: all
+  become_user: root
+  become: yes
+  gather_facts: yes
+  tags: ['setup']
+  roles:
+    - { role: docker, task: setup }
+    - { role: letsencrypt, task: renew }
+    - { role: elk, task: init }
+
+    - role: letsencrypt
+      task: create
+      letsencrypt_dhparam_dir: "{{ kibana_dhparam_dir }}"
+      letsencrypt_domain: "{{ kibana_server_name }}"
+
+    - { role: elk, task: setup, elk_letsencrypt_dir: "{{ letsencrypt_webroot }}" }
