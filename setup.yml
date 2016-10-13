@@ -14,4 +14,9 @@
       letsencrypt_dhparam_dir: "{{ kibana_dhparam_dir }}"
       letsencrypt_domain: "{{ kibana_server_name }}"
 
+    - role: letsencrypt
+      task: create
+      letsencrypt_dhparam_dir: "{{ elasticsearch_dhparam_dir }}"
+      letsencrypt_domain: "{{ elasticsearch_server_name }}"
+
     - { role: elk, task: setup, elk_letsencrypt_dir: "{{ letsencrypt_webroot }}" }

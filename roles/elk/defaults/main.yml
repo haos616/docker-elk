@@ -1,4 +1,6 @@
 home_dir: "/home"
+password_length: '33'
+password_dir: 'passwords/'
 
 elk_user: "elk"
 elk_user_dir: "{{ home_dir }}/{{ elk_user }}"
@@ -9,6 +11,7 @@ elk_project_name: "elk"
 kibana_ip: "127.0.0.1"
 kibana_port: "5601"
 kibana_image: "kibana:4"
+kibana_password_length: "{{ password_length }}"
 kibana_config_dir: "{{ elk_configs_dir }}/kibana"
 kibana_volumes_dir: "{{ elk_volumes_dir }}/kibana"
 kibana_dhparam_dir: "{{ kibana_config_dir }}/dhparam"
@@ -16,7 +19,13 @@ kibana_nginx_template: "kibana.nginx.conf.j2"
 kibana_nginx_config_file: "/etc/nginx/conf.d/{{ kibana_server_name }}.conf"
 kibana_ssl_certificate: "/etc/letsencrypt/live/{{ kibana_server_name }}/fullchain.pem"
 kibana_ssl_certificate_key: "/etc/letsencrypt/live/{{ kibana_server_name }}/privkey.pem"
+kibana_htpasswd_file: "{{ kibana_config_dir }}/htpasswd"
+kibana_htpasswd_user: "admin"
+kibana_password_dir: '{{ password_dir }}/{{ kibana_server_name }}/{{ kibana_htpasswd_user }}'
+kibana_htpasswd_password: "{{lookup('password', kibana_password_dir + ' length=' + kibana_password_length )}}"
 
+elasticsearch_port: "9200"
+elasticsearch_ip: "127.0.0.1"
 elasticsearch_image: "elasticsearch:2"
 elasticsearch_config_dir: "{{ elk_configs_dir }}/elasticsearch"
 elasticsearch_volumes_dir: "{{ elk_volumes_dir }}/elasticsearch"
@@ -25,14 +34,33 @@ elasticsearch_volume_config_dir: "{{ elasticsearch_volumes_dir }}/config"
 elasticsearch_scripts_dir: "{{ elasticsearch_volume_config_dir }}/scripts"
 elasticsearch_config: "elasticsearch.yaml.j2"
 elasticsearch_config_file: "{{ elasticsearch_volume_config_dir }}/elasticsearch.yaml"
+elasticsearch_password_length: "{{ password_length }}"
+elasticsearch_dhparam_dir: "{{ elasticsearch_config_dir }}/dhparam"
+elasticsearch_nginx_template: "elasticsearch.nginx.conf.j2"
+elasticsearch_nginx_config_file: "/etc/nginx/conf.d/{{ elasticsearch_server_name }}.conf"
+elasticsearch_ssl_certificate: "/etc/letsencrypt/live/{{ elasticsearch_server_name }}/fullchain.pem"
+elasticsearch_ssl_certificate_key: "/etc/letsencrypt/live/{{ elasticsearch_server_name }}/privkey.pem"
+elasticsearch_htpasswd_file: "{{ elasticsearch_config_dir }}/htpasswd"
+elasticsearch_htpasswd_user: "admin"
+elasticsearch_password_dir: '{{ password_dir }}/{{ elasticsearch_server_name }}/{{ elasticsearch_htpasswd_user }}'
+elasticsearch_htpasswd_password: "{{lookup('password', elasticsearch_password_dir + ' length=' + elasticsearch_password_length )}}"
 
 dockerbeat_image: "ingensi/dockerbeat:latest"
-dockerbeat_volumes_dir: "{{ elk_volumes_dir }}/elasticsearch"
+dockerbeat_volumes_dir: "{{ elk_volumes_dir }}/dockerbeat"
+dockerbeat_config_dir: "{{ elk_configs_dir }}/dockerbeat"
 dockerbeat_data_dir: "{{ dockerbeat_volumes_dir }}/data"
 dockerbeat_config: "dockerbeat.yml.j2"
 dockerbeat_config_file: "{{ dockerbeat_data_dir }}/dockerbeat.yml"
 dockerbeat_template: "dockerbeat.template.json.j2"
 dockerbeat_template_file: "{{ dockerbeat_data_dir }}/dockerbeat.template.json"
+
+logstash_image: "logstash:2"
+logstash_ip: "127.0.0.1"
+logstash_port: "5000"
+logstash_volumes_dir: "{{ elk_volumes_dir }}/logstash"
+logstash_data_dir: "{{ logstash_volumes_dir }}/data"
+logstash_config: "logstash.conf.j2"
+logstash_config_file: "{{ logstash_data_dir }}/logstash.conf"
 
 elk_dirs:
   - "{{ elk_volumes_dir }}"
@@ -47,3 +75,39 @@ elk_dirs:
   - "{{ elasticsearch_scripts_dir }}"
   - "{{ dockerbeat_volumes_dir }}"
   - "{{ dockerbeat_data_dir }}"
+  - "{{ dockerbeat_config_dir }}"
+  - "{{ logstash_volumes_dir }}"
+  - "{{ logstash_data_dir }}"
+
+elk_services:
+  kibana:
+    image: "{{ kibana_image }}"
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    ports:
+      - "{{ kibana_ip }}:{{ kibana_port }}:5601"
+    links:
+     - elasticsearch
+  elasticsearch:
+    image: "{{ elasticsearch_image }}"
+    volumes:
+     - "{{ elasticsearch_volume_config_dir }}:/usr/share/elasticsearch/config"
+     - "{{ elasticsearch_data_dir }}:/usr/share/elasticsearch/data"
+    ports:
+     - "{{ elasticsearch_ip }}:{{ elasticsearch_port }}:9200"
+  dockerbeat:
+    image: "{{ dockerbeat_image }}"
+    volumes:
+     - "/var/run/docker.sock:/var/run/docker.sock"
+     - "{{ dockerbeat_data_dir }}:/etc/dockerbeat"
+    links:
+     - elasticsearch
+  logstash:
+    image: "{{ logstash_image }}"
+    command: logstash -f /config/logstash.conf
+    volumes:
+     - "{{ logstash_data_dir }}:/config"
+    ports:
+     - "{{ logstash_ip }}:{{ logstash_port }}:5000"
+    links:
+     - elasticsearch
